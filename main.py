@@ -18,24 +18,25 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-sentiment_analyzer = pipeline(model="r1char9/rubert-base-cased-russian-sentiment")
+# classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
+classifier = pipeline("zero-shot-classification", model="MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli")
+emotion_classifier = pipeline("text-classification", model="j-hartmann/emotion-english-distilroberta-base")
 
 def analyze_sentiment(message):
-    result = sentiment_analyzer(message)
-    return result[0]['label']
+    candidate_labels = ['comedy', 'drama', 'action', 'romantic', 'thriller', 'happy', 'sad', 'exciting', 'relaxing']
+    result = classifier(message, candidate_labels)
+    emotion_result = emotion_classifier(message)
+    answer = result['labels'][:3]
+    return answer
 
 @dp.message(Command("start"))
 async def start_handler(message: Message):
-    await message.answer("Привет! Я помогу тебе подобрать фильм. Напиши, что ты ищешь!")
+    await message.answer("Hello, i will help you with film recommendation")
 
 @dp.message()
 async def echo_handler(message: Message):
-    sentiment = analyze_sentiment(message.text)
-    if sentiment == 'positive':
-        response = 'Позитивное сообщение'
-    else:
-        response = 'Негативное сообщение'
-    await message.reply(response)
+    response = analyze_sentiment(message.text)
+    await message.reply(", ".join(response))
 
 async def main():
     await dp.start_polling(bot)
