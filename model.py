@@ -15,7 +15,7 @@ class KinoRNN(nn.Module):
         self.out_features = out_features
         self.hidden_size = 96
 
-        self.rnn = nn.LSTM(in_features, self.hidden_size, batch_first=True)
+        self.rnn = nn.LSTM(self.in_features, self.hidden_size, batch_first=True)
         self.out = nn.Linear(self.hidden_size, self.out_features)
 
     def forward(self, x):
