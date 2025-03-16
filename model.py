@@ -31,7 +31,7 @@ class KinoDataset(data.Dataset):
         self.df = df
 
     def __getitem__(self, idx):
-        embedding = self.df.iloc[idx]["embedding"]
+        embedding = torch.tensor(self.df.iloc[idx]["embedding"], dtype=torch.float32)
         label = torch.tensor(self.df.iloc[idx]["label"], dtype=torch.long)
         return embedding, label
 
@@ -50,12 +50,60 @@ df_train, df_test = train_test_split(df, test_size=0.2, random_state=52)
 d_train = KinoDataset(df_train)
 d_test = KinoDataset(df_test)
 
-train_data = data.DataLoader(d_train, batch_size=32, shuffle=True)
-test_data = data.DataLoader(d_test, batch_size=32, shuffle=False)
+BATCH_SIZE = 32
+train_data = data.DataLoader(d_train, batch_size=BATCH_SIZE, shuffle=True)
+test_data = data.DataLoader(d_test, batch_size=BATCH_SIZE, shuffle=False)
 
-for embeddings, labels in train_data:
-    print(embeddings.shape)  # Ожидаем (batch_size, embedding_dim)
-    print(labels.shape)      # Ожидаем (batch_size,)
-    break
+num_classes = 6
+
+model = KinoRNN(96, num_classes)
+
+optimizer = optim.Adam(params=model.parameters(), lr=0.001, weight_decay=0.001)
+loss_function = nn.CrossEntropyLoss()
+
+epochs = 20
+model.train()
+
+for _ in range(epochs):
+    train_loss = 0
+    train_tqdm = tqdm(train_data, leave=True)
+    for x_train, y_train in train_tqdm:
+        x_train = x_train.unsqueeze(1)
+        predict = model(x_train)
+        loss = loss_function(predict, y_train.long())
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        train_loss += loss.item()
+        train_tqdm.set_description(f"Epoch {_+1}/{epochs} - Loss: {loss.item():.4f}")
+
+    avg_train_loss = train_loss / len(train_data)
+    print(f"Epoch {_+1}: Average Train Loss: {avg_train_loss:.4f}")
+
+    model.eval()
+    val_loss = 0
+    with torch.no_grad():
+        for x_val, y_val in test_data:
+            x_val = x_val.unsqueeze(1)
+            y_pred = model(x_val)
+            loss = loss_function(y_pred, y_val.long())
+            val_loss += loss.item()
+
+    avg_val_loss = val_loss / len(test_data)
+    correct = (y_pred.argmax(dim=1) == y_val).sum().item()
+    total = len(y_val)
+    accuracy = correct / total
+    print(f"Validation Accuracy: {accuracy:.4f}")
+    print(f"Epoch {_+1}: Average Validation Loss: {avg_val_loss:.4f}")
+
+
+st = model.state_dict()
+torch.save(st, 'model_rnn_words.tar')
+
+
+
+
 
 
