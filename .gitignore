@@ -3,5 +3,4 @@ datasets/
 __pycache__/
 *.pyc
 *.pyo
-.env
 config.py
