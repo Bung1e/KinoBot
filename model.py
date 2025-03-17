@@ -6,92 +6,123 @@ import torch
 import torch.utils.data as data
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader
+from data import prepare_data
 
 class KinoRNN(nn.Module):
-    def __init__(self, in_features, out_features):
+    def __init__(self, vocab_size, embedding_dim, hidden_size, num_layers, num_classes):
         super().__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.hidden_size = 96
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
-        self.rnn = nn.LSTM(self.in_features, self.hidden_size, batch_first=True)
-        self.out = nn.Linear(self.hidden_size, self.out_features)
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+
+        self.lstm = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=self.hidden_size,
+            num_layers=self.num_layers,
+            batch_first=True,
+            bidirectional=True)
+        self.out = nn.Linear(self.hidden_size * 2, num_classes)
 
     def forward(self, x):
-        h0 = torch.zeros(1, x.size(0), self.hidden_size)
-        c0 = torch.zeros(1, x.size(0), self.hidden_size)
-        x, (h, c) = self.rnn(x, (h0, c0))
-        y = self.out(x[:, -1, :])
-        return y
+        device = x.device
+        
+        embedded = self.embedding(x)
+        batch_size = x.size(0)
+        
+        h0 = torch.zeros(self.num_layers * 2, batch_size, self.hidden_size).to(device)
+        c0 = torch.zeros(self.num_layers * 2, batch_size, self.hidden_size).to(device)
+        
+        lstm_out, (h, c) = self.lstm(embedded, (h0, c0))
+        
+        out = self.out(lstm_out[:, -1, :])
+        return out
 
-class KinoDataset(data.Dataset):
-    def __init__(self, df):
-        self.df = df
+def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
+    model = model.to(device)
 
-    def __getitem__(self, idx):
-        embedding = torch.tensor(self.df.iloc[idx]["embedding"], dtype=torch.float32)
-        label = torch.tensor(self.df.iloc[idx]["label"], dtype=torch.long)
-        return embedding, label
+    optimizer = optim.Adam(params=model.parameters(), lr=0.001, weight_decay=0.01)
+    loss_function = nn.CrossEntropyLoss()  
 
-    def __len__(self):
-        return len(self.df)
+    best_accuracy = 0.0
+    patience = 3
+    no_improve = 0
 
-def parse_embedding(embedding_str):
-    embedding_array = np.fromstring(embedding_str.strip("[]"), sep=" ")
-    return torch.tensor(embedding_array, dtype=torch.float32)
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0
+        train_total = 0
+        train_correct = 0
 
-df = pd.read_csv('datasets/end_data.csv')
-df["embedding"] = df["embedding"].apply(parse_embedding)
-df_train, df_test = train_test_split(df, test_size=0.2, random_state=52)
+        train_tqdm = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs}')
+        for batch in train_tqdm:
+            input_ids = batch['input_ids'].to(device)
+            labels = batch['label'].to(device)
 
-d_train = KinoDataset(df_train)
-d_test = KinoDataset(df_test)
-BATCH_SIZE = 32
-train_data = data.DataLoader(d_train, batch_size=BATCH_SIZE, shuffle=True)
-test_data = data.DataLoader(d_test, batch_size=BATCH_SIZE, shuffle=False)
+            optimizer.zero_grad()
+            predict = model(input_ids)
+            loss = loss_function(predict, labels)
 
-num_classes = 6
-model = KinoRNN(96, num_classes)
-optimizer = optim.Adam(params=model.parameters(), lr=0.001, weight_decay=0.01)
-loss_function = nn.CrossEntropyLoss()
+            loss.backward()
+            optimizer.step()
 
-epochs = 20
-for epoch in range(epochs):
-    model.train()
-    train_loss = 0
-    train_tqdm = tqdm(train_data, leave=True)
-    for x_train, y_train in train_tqdm:
-        x_train = x_train.unsqueeze(1)
-        predict = model(x_train)
-        loss = loss_function(predict, y_train.long())
+            train_loss += loss.item()
+            _, predicted = torch.max(predict.data, 1)
+            train_total += labels.size(0)
+            train_correct += (predicted == labels).sum().item()
+        
+            train_tqdm.set_description(f'Epoch {epoch+1}/{epochs} - Loss: {loss.item():.4f}')
+        
+        avg_train_loss = train_loss / len(train_loader)
+        train_accuracy = train_correct / train_total
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        model.eval()
+        val_loss = 0
+        val_correct = 0
+        val_total = 0
+        
+        with torch.no_grad():
+            for batch in val_loader:
+                input_ids = batch['input_ids'].to(device)
+                labels = batch['label'].to(device)
+                
+                outputs = model(input_ids)
+                loss = loss_function(outputs, labels)
+                
+                val_loss += loss.item()
+                _, predicted = torch.max(outputs.data, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+        
+        avg_val_loss = val_loss / len(val_loader)
+        val_accuracy = val_correct / val_total
+        
+        print(f'Epoch {epoch+1}:')
+        print(f'Training Loss: {avg_train_loss:.4f}, Training Accuracy: {train_accuracy:.4f}')
+        print(f'Validation Loss: {avg_val_loss:.4f}, Validation Accuracy: {val_accuracy:.4f}')
+    
+    st = model.state_dict()
+    torch.save('best_model_rnn.pt', st)
 
-        train_loss += loss.item()
-        train_tqdm.set_description(f"Epoch {epoch+1}/{epochs} - Loss: {loss.item():.4f}")
+if __name__ == '__main__':
 
-    avg_train_loss = train_loss / len(train_data)
-    print(f"Epoch {epoch+1}: Average Train Loss: {avg_train_loss:.4f}")
+    data, vocab_size = prepare_data('datasets/end_data.csv')
 
-    model.eval()
-    val_loss = 0
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for x_val, y_val in test_data:
-            x_val = x_val.unsqueeze(1)
-            y_pred = model(x_val)
-            loss = loss_function(y_pred, y_val.long())
-            val_loss += loss.item()
-            correct += (y_pred.argmax(dim=1) == y_val).sum().item()
-            total += len(y_val)
+    train_size = int(0.8 * len(data))
+    val_size = len(data) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(data, [train_size, val_size])
 
-    avg_val_loss = val_loss / len(test_data)
-    accuracy = correct / total
-    print(f"Validation Accuracy: {accuracy:.4f}")
-    print(f"Epoch {epoch+1}: Average Validation Loss: {avg_val_loss:.4f}")
+    train_data = DataLoader(train_dataset, batch_size=32, shuffle=True)
+    val_data = DataLoader(val_dataset, batch_size=32, shuffle=False)
 
-torch.save(model.state_dict(), 'model_rnn_words.tar')
+    model = KinoRNN(
+        vocab_size=vocab_size,
+        embedding_dim=768,
+        hidden_size=128,
+        num_layers=1,
+        num_classes=6)
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    train_model(model, train_data, val_data, epochs=20, device=device)
+

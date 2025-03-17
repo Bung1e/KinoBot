@@ -1,71 +1,65 @@
 import pandas as pd
-import os
 import numpy as np
-import re
-# import matplotlib.pyplot as plt
-from tqdm import tqdm
+from transformers import AutoTokenizer
 import torch
-from torch.utils.data import BatchSampler, SequentialSampler
-import torch.utils.data as data
-import torchvision
-from torchvision import models
-import torchvision.transforms.v2 as tfs_v2
-import torch.nn as nn
-import torch.optim as optim
-import spacy
-from multiprocessing import Pool
-from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset
+import json
+import os
 
-df = pd.read_csv('datasets/cleaned_data.csv')
-nlp = spacy.load("en_core_web_sm")
+class TextTokenizer():
+    def __init__(self, max_length=128):
+        self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.max_length = max_length
 
+    def tokenize(self, text):
+        encoded = self.tokenizer(
+            text,
+            max_length=self.max_length,
+            padding='max_length', #обрезает если строка больше макс_длины или наоборот добовляет 0
+            truncation=True,
+            return_tensors='pt'
+        )
+        return encoded["input_ids"].squeeze(0)
 
-def preprocess_text(text):
-    doc = nlp(text.lower())
-    tokens = [token.lemma_ for token in doc if not token.is_stop and token.is_alpha]
-    return tokens
+class KinoDataset(Dataset):
+    def __init__(self, df, tokenizer):
+        self.df = df
+        self.tokenizer = tokenizer
 
+    def __getitem__(self, idx):
+        text = self.df.iloc[idx]['text']
+        label = self.df.iloc[idx]['label']
+        
+        tokens = self.tokenizer.tokenize(text)
 
-def chunk_data(df, chunk_size):
-    chunks = [df.iloc[i:i + chunk_size] for i in range(0, len(df), chunk_size)]
-    return chunks
+        return {
+            'input_ids': tokens,
+            'label': torch.tensor(label, dtype=torch.long)
+        }
 
-def process_chunk(chunk):
-    chunk['tokens'] = chunk['text'].apply(preprocess_text)
-    chunk['embedding'] = chunk['tokens'].apply(get_embedding) 
-    return chunk[['text', 'tokens', 'embedding']]
+    def __len__(self):
+        return len(self.df)
 
-def parallel_processing(df, chunk_size):
-    chunks = chunk_data(df, chunk_size)  
-    with Pool(processes=4) as pool:  
-        result = pool.map(process_chunk, chunks)  
-    return pd.concat(result, ignore_index=True)  
+def prepare_data(csv_path, max_length=128):
+    df = pd.read_csv(csv_path)
 
-def sample_class_data(group, samples_per_class):
-    num_samples = min(samples_per_class, len(group))
-    return group.sample(n=num_samples, random_state=42)
+    tokenizer = TextTokenizer(max_length=128)
 
-def get_embedding(text):
-    try:
-        doc = nlp(" ".join(text)) 
-        if doc.vector is not None and doc.vector.any():
-            return doc.vector
-        else:
-            return np.zeros(96)
-    except Exception as e:
-        print(f"Ошибка при обработке текста: {e}")
-        return np.zeros(96)
+    data = KinoDataset(df, tokenizer)
+
+    vocab_size = tokenizer.tokenizer.vocab_size
+    print(f"vocab size: {vocab_size}")
+    return data, vocab_size
 
 if __name__ == '__main__':
-    df = pd.read_csv('datasets/cleaned_data.csv')
-    min_class_count = df['label'].value_counts().min()
-    desired_samples_per_class = 150000 // len(df['label'].value_counts())
+    data, vocab_size = prepare_data('datasets/end_data.csv')
+    print(f"Dataset size: {len(data)}")
+    sample = data[0]
+    print(f"Sample input shape: {sample['input_ids'].shape}")
+    print(f"Sample label: {sample['label']}")
 
-    df_sampled = df.groupby('label').apply(lambda x: sample_class_data(x, desired_samples_per_class))
-    df_sampled = df_sampled.reset_index(drop=True) #delete multi indexes after group_by
-    print(df_sampled['label'].value_counts())
 
-    df_processed = parallel_processing(df_sampled, chunk_size=50000)
-    df_processed = df_processed[df_processed['embedding'].apply(lambda x: np.any(x != 0))]
-    df_processed.to_csv("processed_data_sampled.csv", index=False)
-    np.save("embeddings_sampled.npy", np.vstack(df_processed['embedding'].values))
+
+
+
+
