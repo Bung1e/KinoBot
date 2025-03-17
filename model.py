@@ -16,14 +16,12 @@ class KinoRNN(nn.Module):
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         
-        # Инициализируем эмбеддинги с нормальным распределением
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         nn.init.normal_(self.embedding.weight, mean=0, std=0.01)
         
-        self.embed_dropout = nn.Dropout(0.1)  # уменьшаем dropout
+        self.embed_dropout = nn.Dropout(0.1)
         self.embed_norm = nn.LayerNorm(embedding_dim)
         
-        # Изменяем архитектуру LSTM
         self.lstm = nn.LSTM(
             input_size=embedding_dim,
             hidden_size=hidden_size,
@@ -33,7 +31,6 @@ class KinoRNN(nn.Module):
             dropout=0.1 if num_layers > 1 else 0
         )
         
-        # Добавляем внимание
         self.attention = nn.Linear(hidden_size * 2, 1)
         
         self.dropout = nn.Dropout(0.1)
@@ -42,29 +39,24 @@ class KinoRNN(nn.Module):
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(hidden_size, num_classes)
         
-        # Инициализируем веса линейных слоев
         nn.init.xavier_normal_(self.fc1.weight)
         nn.init.xavier_normal_(self.fc2.weight)
 
     def forward(self, x):
         device = x.device
         
-        # Embedding
         embedded = self.embedding(x)
         embedded = self.embed_dropout(embedded)
         embedded = self.embed_norm(embedded)
         
-        # LSTM
         h0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
         c0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
         
         lstm_out, _ = self.lstm(embedded, (h0, c0))
         
-        # Attention
         attention_weights = torch.softmax(self.attention(lstm_out), dim=1)
         out = torch.sum(attention_weights * lstm_out, dim=1)
         
-        # Final layers
         out = self.norm(out)
         out = self.dropout(out)
         out = self.fc1(out)
@@ -77,26 +69,23 @@ class KinoRNN(nn.Module):
 def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
     model = model.to(device)
     
-    # Изменяем веса классов
-    class_weights = torch.tensor([1.2, 1.0, 1.2, 1.2, 1.1, 1.5])  # более мягкие веса
+    class_weights = torch.tensor([1.2, 1.0, 1.2, 1.2, 1.1, 1.5])
     class_weights = class_weights / class_weights.sum()
     class_weights = class_weights.to(device)
     
-    # Используем другой оптимизатор
     optimizer = optim.AdamW(
         model.parameters(),
-        lr=0.001,  # увеличиваем learning rate
-        weight_decay=0.01,  # уменьшаем weight decay
+        lr=0.001,
+        weight_decay=0.01,
         betas=(0.9, 0.999)
     )
     
-    # Используем линейный warmup
     scheduler = optim.lr_scheduler.OneCycleLR(
         optimizer,
         max_lr=0.001,
         epochs=epochs,
         steps_per_epoch=len(train_loader),
-        pct_start=0.1,  # 10% epochs для warmup
+        pct_start=0.1,
         div_factor=10.0
     )
     
@@ -117,7 +106,6 @@ def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
             input_ids = batch['input_ids'].to(device)
             labels = batch['label'].to(device)
             
-            # Data augmentation: случайно меняем местами предложения в батче
             if random.random() < 0.3:
                 idx = torch.randperm(input_ids.size(0))
                 input_ids = torch.cat([input_ids, input_ids[idx]], dim=0)
