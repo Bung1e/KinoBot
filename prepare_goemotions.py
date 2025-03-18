@@ -128,22 +128,11 @@ def process_goemotions_files():
     
     for class_id in range(6):
         class_samples = new_df[new_df['label'] == class_id]
-        # Если класс имеет больше примеров, чем целевое количество, выбираем случайно
         if len(class_samples) > target_count:
             class_samples = class_samples.sample(target_count, random_state=42)
         balanced_df = pd.concat([balanced_df, class_samples])
     
     balanced_df = balanced_df.sample(frac=1, random_state=42).reset_index(drop=True)
-
-
-    
-    # Проверяем статистику длин текстов
-    text_lengths = balanced_df['text'].str.len()
-    print(f"\nСтатистика длин текстов:")
-    print(f"Минимальная длина: {text_lengths.min()}")
-    print(f"Максимальная длина: {text_lengths.max()}")
-    print(f"Средняя длина: {text_lengths.mean():.2f}")
-    print(f"Медианная длина: {text_lengths.median()}")
     
     balanced_df.to_csv('datasets/goemotions_processed.csv', index=False)
     
