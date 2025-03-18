@@ -11,7 +11,7 @@ from data import prepare_data
 import random
 
 class KinoRNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim=128, hidden_size=256, num_layers=2, num_classes=6):
+    def __init__(self, vocab_size, embedding_dim=128, hidden_size=256, num_layers=1, num_classes=6):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -19,7 +19,6 @@ class KinoRNN(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         nn.init.normal_(self.embedding.weight, mean=0, std=0.01)
         
-        self.embed_dropout = nn.Dropout(0.1)
         self.embed_norm = nn.LayerNorm(embedding_dim)
         
         self.lstm = nn.LSTM(
@@ -27,69 +26,45 @@ class KinoRNN(nn.Module):
             hidden_size=hidden_size,
             num_layers=num_layers,
             batch_first=True,
-            bidirectional=True,
-            dropout=0.1 if num_layers > 1 else 0
+            bidirectional=True
         )
-        
         self.attention = nn.Linear(hidden_size * 2, 1)
-        
-        self.dropout = nn.Dropout(0.1)
-        self.norm = nn.LayerNorm(hidden_size * 2)
-        self.fc1 = nn.Linear(hidden_size * 2, hidden_size)
-        self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(hidden_size, num_classes)
-        
-        nn.init.xavier_normal_(self.fc1.weight)
-        nn.init.xavier_normal_(self.fc2.weight)
+        self.fc = nn.Linear(hidden_size * 2, num_classes)
+        nn.init.xavier_normal_(self.fc.weight)
 
     def forward(self, x):
         device = x.device
         
         embedded = self.embedding(x)
-        embedded = self.embed_dropout(embedded)
         embedded = self.embed_norm(embedded)
         
         h0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
         c0 = torch.zeros(self.num_layers * 2, x.size(0), self.hidden_size).to(device)
         
         lstm_out, _ = self.lstm(embedded, (h0, c0))
-        
+
         attention_weights = torch.softmax(self.attention(lstm_out), dim=1)
         out = torch.sum(attention_weights * lstm_out, dim=1)
         
-        out = self.norm(out)
-        out = self.dropout(out)
-        out = self.fc1(out)
-        out = self.relu(out)
-        out = self.dropout(out)
-        out = self.fc2(out)
+        out = self.fc(out)
         
         return out
 
 def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
     model = model.to(device)
     
-    class_weights = torch.tensor([1.2, 1.0, 1.2, 1.2, 1.1, 1.5])
-    class_weights = class_weights / class_weights.sum()
-    class_weights = class_weights.to(device)
+    # class_weights = torch.tensor([1.2, 1.0, 1.2, 1.2, 1.1, 1.5])
+    # class_weights = class_weights / class_weights.sum()
+    # class_weights = class_weights.to(device)
     
-    optimizer = optim.AdamW(
+    optimizer = optim.Adam(
         model.parameters(),
         lr=0.001,
-        weight_decay=0.01,
-        betas=(0.9, 0.999)
+        weight_decay=0.01
     )
     
-    scheduler = optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=0.001,
-        epochs=epochs,
-        steps_per_epoch=len(train_loader),
-        pct_start=0.1,
-        div_factor=10.0
-    )
-    
-    loss_function = nn.CrossEntropyLoss(weight=class_weights)
+    # loss_function = nn.CrossEntropyLoss(weight=class_weights)
+    loss_function = nn.CrossEntropyLoss()
     
     best_accuracy = 0.0
     patience = 5
@@ -106,19 +81,15 @@ def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
             input_ids = batch['input_ids'].to(device)
             labels = batch['label'].to(device)
             
-            if random.random() < 0.3:
-                idx = torch.randperm(input_ids.size(0))
-                input_ids = torch.cat([input_ids, input_ids[idx]], dim=0)
-                labels = torch.cat([labels, labels[idx]], dim=0)
-            
             outputs = model(input_ids)
             loss = loss_function(outputs, labels)
             
             optimizer.zero_grad()
             loss.backward()
+            
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
             optimizer.step()
-            scheduler.step()
             
             train_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
@@ -175,9 +146,8 @@ def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'scheduler_state_dict': scheduler.state_dict(),
                 'best_accuracy': best_accuracy,
-            }, 'best_model_rnn.pt')
+            }, 'best_model_simple_rnn.pt')
             no_improve = 0
         else:
             no_improve += 1
@@ -188,7 +158,7 @@ def train_model(model, train_loader, val_loader, epochs=20, device='cuda'):
     return best_accuracy
 
 if __name__ == '__main__':
-    data, vocab_size = prepare_data('datasets/end_data.csv')
+    data, vocab_size = prepare_data('datasets/goemotions_processed.csv')
 
     train_size = int(0.8 * len(data))
     val_size = len(data) - train_size
@@ -199,9 +169,9 @@ if __name__ == '__main__':
 
     model = KinoRNN(
         vocab_size=vocab_size,
-        embedding_dim=256,
-        hidden_size=128,
-        num_layers=2,
+        embedding_dim=128,
+        hidden_size=256,
+        num_layers=1,
         num_classes=6
     )
 
