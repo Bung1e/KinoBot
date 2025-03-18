@@ -70,21 +70,20 @@ def main():
     vocab_size = tokenizer.tokenizer.vocab_size
     
     model, device = load_model(model_path, vocab_size)
-    print(f"Модель загружена успешно! Используется устройство: {device}")
+    print(f"model loaded successfully {device}")
     
     
     while True:
-        user_input = input("\nВаш текст: ")
+        user_input = input("\ntext: ")
         
-        if user_input.lower() in ['выход', 'exit', 'quit', 'q']:
-            print("Завершение работы. До свидания!")
+        if user_input.lower() == 'q':
             break
         
         emotion, confidence, probabilities = predict_emotion(user_input, model, tokenizer, device)
         
-        print(f"\nРаспознанная эмоция: {emotion.upper()} (уверенность: {confidence:.2f}%)")
+        print(f"\nEmotion: {emotion.upper()} (confidence: {confidence:.2f}%)")
         
-        print("\nВероятности по всем классам:")
+        print("\nProbabilities:")
         for i, prob in enumerate(probabilities):
             print(f"{emotion_labels[i]}: {prob*100:.2f}%")
 
