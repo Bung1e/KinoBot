@@ -11,14 +11,13 @@ import logging
 from transformers import pipeline
 import requests
 import torch
-from data import TextTokenizer
-from model import KinoRNN
+from model import TextTokenizer, KinoRNN
 
 logging.basicConfig(level=logging.INFO)
 
-TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# TOKEN = os.getenv("BOT_TOKEN")
+# bot = Bot(token=TOKEN)
+# dp = Dispatcher()
 
 emotion_labels = {
     0: 'sad',
@@ -64,7 +63,7 @@ def predict_emotion(text, model, tokenizer, device):
     return emotion, confidence, probabilities.cpu().numpy()
 
 def main():
-    model_path = 'best_model_simple_rnn.pt'
+    model_path = 'model/best_model_simple_rnn.pt'
     
     tokenizer = TextTokenizer(max_length=128)
     vocab_size = tokenizer.tokenizer.vocab_size
