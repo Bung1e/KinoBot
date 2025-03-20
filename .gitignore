@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 *.pyo
 config.py
+kino_bot.egg-info/
