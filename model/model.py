@@ -7,7 +7,7 @@ import torch.utils.data as data
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from data import prepare_data
+from .data import prepare_data
 import random
 
 class KinoRNN(nn.Module):
