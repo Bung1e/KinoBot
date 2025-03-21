@@ -6,11 +6,9 @@ from aiogram.filters import Command
 from config import headers
 import asyncio
 import torch 
-import os
 import logging
 from transformers import pipeline
 import requests
-import torch
 from model import TextTokenizer, KinoRNN
 
 logging.basicConfig(level=logging.INFO)
@@ -70,7 +68,6 @@ def main():
     
     model, device = load_model(model_path, vocab_size)
     print(f"model loaded successfully {device}")
-    
     
     while True:
         user_input = input("\ntext: ")
