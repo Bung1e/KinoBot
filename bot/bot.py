@@ -14,33 +14,31 @@ async def cmd_start(message: Message):
     
     await message.answer("Hello!")
 
-@dp.message(Command('predict'))
+@dp.message(Command('films'))
 async def analyze_message(message: Message):
-    user_text = message.text.replace("/predict", "").strip()
+    user_text = message.text.replace("/films", "").strip()
     async with aiohttp.ClientSession() as session:
-        async with session.post(f"{API_URL}/predict", json={"text": user_text}) as response:
+        async with session.post(f"{API_URL}/films", json={"text": user_text}) as response:
             if response.status == 200:
                 try:
                     recommendation = await response.json()
-                    if "mood" in recommendation and isinstance(recommendation["mood"], dict):                            
-                        mood_text = "\n".join([f"{emotion}: {prob}%" for emotion, prob in recommendation["mood"].items()])
-                        await message.reply(f"Предсказанное настроение:\n{mood_text}")
-                    else:
-                        await message.reply("Не удалось определить настроение текста.")
+                    if "movies" in recommendation and recommendation["movies"]:
+                        movies_text = "Recommended films:\n\n"
+                        for movie in recommendation["movies"]:
+                            movies_text += f"🎬 {movie.get('title', 'unknown name')}\n" \
+                                           f"Discription: {movie.get('overview', 'no discription')[:100]}...\n" \
+                                           f"Rating: {movie.get('vote_average', 'no average votes')}/10\n\n"
+                        
+                        await message.reply(movies_text)
                 except json.JSONDecodeError as e:
                     error_text = await response.text()
-                    await message.reply(f"Ошибка анализа. API вернул некорректный ответ.")
-                    print(f"JSON ошибка: {str(e)}, Ответ API: {error_text[:100]}")
+                    await message.reply(f"Anlysing error")
+                    print(f"JSON error: {str(e)}, API response: {error_text[:100]}")
     
-    
-
-@dp.message()
-async def process_message(message: Message):
-    await message.reply("Используйте команду /predict [текст] для анализа текста.")
 
 async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print(f"Бот запущен и подключается к API по адресу: {API_URL}")
+    print(f"bot running: {API_URL}")
     asyncio.run(main())
