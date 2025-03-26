@@ -4,13 +4,15 @@ from model.model import KinoRNN
 from model.data import TextTokenizer
 import torch  
 import numpy as np
+from config_api import TMDB_API_KEY
+import requests
 
 app = FastAPI()
 class TextRequest(BaseModel):
     text: str
 
 class PredictionResponse(BaseModel):
-    mood: dict
+    movies: list[dict]
 
 emotion_labels = {
     0: 'sad',
@@ -20,6 +22,31 @@ emotion_labels = {
     4: 'fear',
     5: 'surprise'
 }
+
+MOOD_TO_GENRE = {
+    'sad': [18, 35], 
+    'joy': [35, 10749], 
+    'love': [10749, 18],
+    'angry': [28, 53],
+    'fear': [27, 53],
+    'surprise': [878, 9648] 
+}
+
+def get_movies_by_mood(mood, api_key):
+    genres = MOOD_TO_GENRE.get(mood)
+    url = "https://api.themoviedb.org/3/discover/movie"
+    params = {
+        "api_key": TMDB_API_KEY,
+        "with_genres": f"{genres[0]}|{genres[1]}",
+        "sort_by": "popularity.desc",
+        "language": "en-EN",
+        "page": 1
+    }
+    
+    response = requests.get(url, params=params)
+    movies = response.json().get('results', [])
+    
+    return movies[:3]
 
 def load_model(model_path, vocab_size):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -45,8 +72,8 @@ vocab_size = tokenizer.tokenizer.vocab_size
 
 model, device = load_model(model_path, vocab_size)
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(input_data: TextRequest):
+@app.post("/films", response_model=PredictionResponse)
+async def films(input_data: TextRequest):
         tokens = tokenizer.tokenize(input_data.text)
         tokens = tokens.unsqueeze(0).to(device)
 
@@ -55,9 +82,12 @@ async def predict(input_data: TextRequest):
             probabilities = torch.nn.functional.softmax(outputs, dim=1)[0].cpu().numpy()
 
         top_indices = probabilities.argsort()[-2:][::-1]
-        top_emotions = {emotion_labels[idx]: float(round(probabilities[idx] * 100, 2)) for idx in top_indices}
+        top_emotions = [emotion_labels[idx] for idx in top_indices]
+        print(top_emotions)
 
-        return {"mood": top_emotions}
+        movies = get_movies_by_mood(top_emotions[0], api_key=TMDB_API_KEY)
+
+        return {"movies": movies}
 
 if __name__ == "__main__":
     import uvicorn
