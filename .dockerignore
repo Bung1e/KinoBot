@@ -1,21 +1,55 @@
+# Python
 __pycache__
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
-env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
 venv/
+env/
+ENV/
 .env
-*.log
-.git
-.gitignore
-.pytest_cache/
-.coverage
-htmlcov/
+
+# IDE
 .idea/
 .vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Git
+.git
+.gitignore
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Model files
 *.pt
 !model/best_model_simple_rnn.pt
-bot/config.py
-api/config_api.py
-*.egg-info/
+
+# Local development
+datasets/
+config.py
+config_api.py
