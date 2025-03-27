@@ -4,9 +4,10 @@ from aiogram.filters import CommandStart, Command
 import asyncio
 import json
 import aiohttp
-from config import BOT_TOKEN, API_URL
+import os
 
-bot = Bot(token=BOT_TOKEN)
+API_URL = os.getenv('API_URL')
+bot = Bot(token=os.getenv('BOT_TOKEN'))
 dp = Dispatcher()
 
 @dp.message(CommandStart())
@@ -40,5 +41,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    print(f"bot running: {API_URL}")
     asyncio.run(main())
