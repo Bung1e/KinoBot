@@ -3,13 +3,14 @@ from pydantic import BaseModel
 from model.model import KinoRNN
 from model.data import TextTokenizer
 import torch  
-import numpy as np
-from config_api import TMDB_API_KEY
 import requests
+import os
 
 app = FastAPI()
 class TextRequest(BaseModel):
     text: str
+    
+TMDB_API_KEY = os.getenv('TMDB_API_KEY')
 
 class PredictionResponse(BaseModel):
     movies: list[dict]
