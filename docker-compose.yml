@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    command: uvicorn api.api:app --host 0.0.0.0 --port 8000
+    volumes:
+      - ./model:/app/model
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_URL=http://api:8000
+      - MODEL_PATH=model/best_model_simple_rnn.pt
+      - DEVICE=cuda
+      - TMDB_API_KEY=${TMDB_API_KEY}
+    restart: unless-stopped
+
+  bot:
+    build: .
+    command: python bot/bot.py
+    depends_on:
+      - api
+    volumes:
+      - ./model:/app/model
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - API_URL=http://api:8000
+    restart: unless-stopped 
