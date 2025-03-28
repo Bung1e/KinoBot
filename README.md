@@ -1,16 +1,16 @@
 # Emotion-Based Movie Recommender Bot
 
-Telegram бот, который анализирует эмоциональное состояние пользователя по тексту и рекомендует фильмы, соответствующие настроению.
+A Telegram bot that analyzes user's emotional state from text and recommends movies that match their mood.
 
-## Возможности
+## Features
 
-- Анализ эмоционального состояния по тексту
-- Рекомендации фильмов на основе эмоций
-- Интеграция с TMDB API для получения информации о фильмах
-- REST API для анализа эмоций
-- Docker контейнеризация
+- Text-based emotion analysis
+- Movie recommendations based on emotions
+- TMDB API integration for movie information
+- REST API for emotion analysis
+- Docker containerization
 
-## Технологии
+## Technologies
 
 - Python 3.12
 - PyTorch
@@ -19,25 +19,25 @@ Telegram бот, который анализирует эмоционально�
 - Docker
 - TMDB API
 
-## Модель и обучение
+## Model and Training
 
-### Архитектура модели
+### Model Architecture
 
-Модель представляет собой RNN (Recurrent Neural Network) с LSTM слоями, обученную на датасете GoEmotions. Основные характеристики:
+The model is a RNN (Recurrent Neural Network) with LSTM layers, trained on the dair-ai/emotion dataset. Key features:
 
-- Входной слой: токенизированный текст
-- Embedding слой: 128 размерности
-- LSTM слой: 256 скрытых единиц
-- Выходной слой: 6 эмоций (sad, joy, love, angry, fear, surprise)
+- Input layer: tokenized text
+- Embedding layer: 128 dimensions
+- LSTM layer: 256 hidden units
+- Output layer: 6 emotions (sad, joy, love, angry, fear, surprise)
 
-### Процесс обучения
+### Training Process
 
-1. Подготовка данных:
-   - Токенизация текста
-   - Создание словаря
-   - Векторизация предложений
+1. Data Preparation:
+   - Text tokenization
+   - Vocabulary creation
+   - Sentence vectorization
 
-2. Архитектура:
+2. Architecture:
 ```python
 class KinoRNN(nn.Module):
     def __init__(self, vocab_size, embedding_dim, hidden_size, num_layers, num_classes):
@@ -47,129 +47,121 @@ class KinoRNN(nn.Module):
         self.fc = nn.Linear(hidden_size, num_classes)
 ```
 
-3. Гиперпараметры:
-   - Размер батча: 32
-   - Размер словаря: 10000
-   - Размер эмбеддингов: 128
-   - Размер скрытого слоя: 256
-   - Количество слоев LSTM: 1
+3. Hyperparameters:
+   - Batch size: 32
+   - Vocabulary size: 10000
+   - Embedding dimension: 128
+   - Hidden layer size: 256
+   - Number of LSTM layers: 1
    - Learning rate: 0.001
    - Optimizer: Adam
 
-4. Метрики:
-   - Точность на валидационном наборе: ~85%
+4. Metrics:
+   - Validation accuracy: ~85%
    - Loss: categorical_crossentropy
 
-### Датасет
+### Dataset
 
-Использовался датасет GoEmotions, который содержит:
-- 58k текстовых примеров
-- 27 эмоциональных категорий
-- Анонимизированные данные из Reddit
+The model was trained on the dair-ai/emotion dataset from Hugging Face, which contains:
+- 20k text examples
+- 6 emotional categories
+- Clean, balanced dataset for emotion classification
 
-## Установка и запуск
+## Installation and Setup
 
-### Предварительные требования
+### Prerequisites
 
-- Docker и Docker Compose
-- TMDB API ключ
+- Docker and Docker Compose
+- TMDB API key
 - Telegram Bot Token
 
-### Настройка
+### Setup
 
-1. Клонируйте репозиторий:
+1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/emotion-movie-bot.git
-cd emotion-movie-bot
+git clone https://github.com/bung1e/KinoBot.git
+cd KinoBot
 ```
 
-2. Создайте файл `.env` в корневой директории проекта:
+2. Create a `.env` file in the root directory:
 ```env
 BOT_TOKEN=your_telegram_bot_token
 API_URL=http://api:8000
 TMDB_API_KEY=your_tmdb_api_key
 ```
 
-### Запуск
+### Running
 
-1. Соберите и запустите Docker контейнеры:
+1. Build and start Docker containers:
 ```bash
 docker-compose up --build -d
 ```
 
-2. Проверьте статус контейнеров:
+2. Check container status:
 ```bash
 docker-compose ps
 ```
 
-3. Проверьте логи:
+3. View logs:
 ```bash
 docker-compose logs -f
 ```
 
-## Использование
+## Usage
 
-1. Найдите бота в Telegram по его username
-2. Отправьте команду `/start` для начала работы
-3. Используйте команду `/films` и напишите текст, описывающий ваше настроение
-4. Получите рекомендации фильмов, соответствующих вашему настроению
+1. Find the bot in Telegram by its username
+2. Send `/start` command to begin
+3. Use `/films` command and write text describing your mood
+4. Get movie recommendations matching your emotional state
 
 ## API Endpoints
 
-- `POST /films` - анализ текста и получение рекомендаций фильмов
-- `GET /docs` - Swagger документация API
+- `POST /films` - analyze text and get movie recommendations
+- `GET /docs` - Swagger API documentation
 
-## Структура проекта
+## Project Structure
 
 ```
 .
 ├── api/
-│   └── api.py          # FastAPI приложение
+│   └── api.py          # FastAPI application
 ├── bot/
-│   └── bot.py          # Telegram бот
+│   └── bot.py          # Telegram bot
 ├── model/
-│   ├── model.py        # Модель для анализа эмоций
-│   └── data.py         # Обработка данных
-├── docker-compose.yml  # Docker Compose конфигурация
-├── Dockerfile         # Dockerfile для сборки образа
-├── requirements.txt   # Зависимости проекта
-└── .env              # Переменные окружения
+│   ├── model.py        # Emotion analysis model
+│   └── data.py         # Data processing
+├── docker-compose.yml  # Docker Compose configuration
+├── Dockerfile         # Dockerfile for image building
+├── requirements.txt   # Project dependencies
+└── .env              # Environment variables
 ```
 
-## Разработка
+## Development
 
-Для локальной разработки:
+For local development:
 
-1. Создайте виртуальное окружение:
+1. Create a virtual environment:
 ```bash
 python -m venv venv
-source venv/bin/activate  # для Linux/Mac
-venv\Scripts\activate     # для Windows
+source venv/bin/activate  # for Linux/Mac
+venv\Scripts\activate     # for Windows
 ```
 
-2. Установите зависимости:
+2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Запустите API локально:
+3. Run API locally:
 ```bash
 uvicorn api.api:app --reload
 ```
 
-4. Запустите бота:
+4. Run bot:
 ```bash
 python bot/bot.py
 ```
 
-## Лицензия
+## Support
 
-MIT
-
-## Автор
-
-[Ваше имя]
-
-## Поддержка
-
-Если у вас есть вопросы или проблемы, создайте issue в репозитории проекта.
+If you have any questions or issues, please create an issue in the project repository.
