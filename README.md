@@ -86,26 +86,10 @@ cd KinoBot
 2. Create a `.env` file in the root directory:
 ```env
 BOT_TOKEN=your_telegram_bot_token
-API_URL=http://api:8000
+API_URL=http://localhost:8000
 TMDB_API_KEY=your_tmdb_api_key
 ```
 
-### Running
-
-1. Build and start Docker containers:
-```bash
-docker-compose up --build -d
-```
-
-2. Check container status:
-```bash
-docker-compose ps
-```
-
-3. View logs:
-```bash
-docker-compose logs -f
-```
 
 ## Usage
 
@@ -161,7 +145,3 @@ uvicorn api.api:app --reload
 ```bash
 python bot/bot.py
 ```
-
-## Support
-
-If you have any questions or issues, please create an issue in the project repository.
